@@ -22,7 +22,7 @@ import seaborn as sns # visualization
 
 
 # os.getcwd()
-# os.chdir(r'E:\to_be_deleted\DeepLearningIntro\SentimentAnalysis')
+# os.chdir(r'D:\CodeRepo\DeepLearningIntro\SentimentAnalysis')
 
 ign_dataset_path = "./ign_dataset.csv"
 ign_model_path = "./ign_model.tfl"
@@ -170,6 +170,33 @@ def sentence_to_wordlist(raw):
     return words
 
 
+def plot_region(points, x_bounds, y_bounds):
+    # points, x_bounds, y_bounds = points, (0, 1), (4, 4.5)
+
+    sns.set_context("poster")
+    slice = points[(x_bounds[0] <= points.x) & (points.x <= x_bounds[1]) &
+                    (y_bounds[0] <= points.y) & (points.y <= y_bounds[1])]
+
+    if len(slice):
+        ax = slice.plot.scatter("x", "y", s=35, figsize=(10, 8))
+
+        for i, point in slice.iterrows():
+            ax.text(point.x + 0.005, point.y + 0.005, point.word, fontsize=11)
+
+        plt.show()
+    else:
+        print("Nothing to display in this region.")
+
+    return 0
+
+
+def nearest_similarity_cosmul(model, start1, end1, end2):
+    similarities = model.most_similar_cosmul(positive=[end2, start1], negative=[end1])
+    start2 = similarities[0][0]
+    print("{start1} is related to {end1}, as {start2} is related to {end2}".format(**locals()))
+    return start2
+
+
 def run_on_got():
 
     # get the book names, matching txt file
@@ -233,8 +260,8 @@ def run_on_got():
         thrones2vec = w2v.Word2Vec.load(got_model_path)
     else:
         thrones2vec = w2v.Word2Vec(sg=1, seed=seed, workers=num_workers, size=num_features, min_count=min_word_count, window=context_size, sample=downsampling)
+        thrones2vec.build_vocab(sentences)
 
-    thrones2vec.build_vocab(sentences)
     print("Word2Vec vocabulary length:", len(thrones2vec.wv.vocab))
 
     thrones2vec.train(sentences, total_examples=thrones2vec.corpus_count, epochs=thrones2vec.epochs)
@@ -261,9 +288,20 @@ def run_on_got():
     plt.show()
 
     # zoom in to some interesting places
+    # people related to Kingsguard ended up together
+    plot_region(points, x_bounds=(4.0, 4.2), y_bounds=(-0.5, -0.1))
 
+    # food products are grouped nicely as well.
+    plot_region(points, x_bounds=(0, 1), y_bounds=(4, 4.5))
 
+    # words closest to the given word
+    print("Word closest to Stark",thrones2vec.most_similar("Stark"))
+    print("Word closest to Aerys",thrones2vec.most_similar("Aerys"))
+    print("Word closest to direwolf",thrones2vec.most_similar("direwolf"))
 
+    nearest_similarity_cosmul(thrones2vec, "Stark", "Winterfell", "Riverrun")
+    nearest_similarity_cosmul(thrones2vec, "Jaime", "sword", "wine")
+    nearest_similarity_cosmul(thrones2vec, "Arya", "Nymeria", "dragons")
 
     return 0
 
@@ -272,7 +310,7 @@ def main():
 
     # run_on_imdb()
     # run_on_ign()
-    # run_on_got()
+    run_on_got()
 
     return 0
 
