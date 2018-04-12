@@ -7,6 +7,19 @@ from tflearn.datasets import imdb
 from sklearn.cross_validation import train_test_split
 from tflearn.data_utils import to_categorical, pad_sequences, VocabularyProcessor
 
+# imports for GOT dataset
+import codecs # encoding. word encodig
+import glob # finds all pathnames matching a pattern, like regex
+import logging # log events for libraries
+import multiprocessing # concurrency
+import pprint # pretty print, human readable
+import re # regular expressions
+import nltk # natural language toolkit
+import gensim.models.word2vec as w2v # word 2 vec
+import sklearn.manifold # dimensionality reduction
+import matplotlib.pyplot as plt # plotting
+import seaborn as sns # visualization
+
 
 # os.getcwd()
 # os.chdir(r'E:\to_be_deleted\DeepLearningIntro\SentimentAnalysis')
@@ -15,6 +28,8 @@ ign_dataset_path = "./ign_dataset.csv"
 ign_model_path = "./ign_model.tfl"
 imdb_dataset_path = "./imdb_dataset.pkl"
 imdb_model_path = "./imdb_model.tfl"
+got_data_base = "./got_data/"
+got_model_path = "./thrones2vec.w2v"
 
 save_model = True
 
@@ -145,13 +160,121 @@ def run_on_ign():
     return 0
 
 
-def main():
 
-    run_on_imdb()
-    # run_on_ign()
+def sentence_to_wordlist(raw):
+    # convert into list of words
+    # remove unecessary characters, split into words, no hyhens and shit
+    # split into words
+    clean = re.sub("[^a-zA-Z]"," ", raw)
+    words = clean.split()
+    return words
+
+
+def run_on_got():
+
+    # get the book names, matching txt file
+    book_filenames = sorted(glob.glob(got_data_base+"*.txt"))
+    print("Found books:", book_filenames)
+
+    # initialize rawunicode , we'll add all text to this one bigass file in memory
+    corpus_raw = u""
+    # corpus_raw = corpus_raw[:169]
+    # for each book, open it, read it in utf-8 format
+    # add it to the raw corpus
+    for book_filename in book_filenames:
+        # book_filename = book_filenames[0]
+        print("Reading '{0}'...".format(book_filename))
+        with codecs.open(book_filename, "r", "utf-8") as book_file:
+            corpus_raw += book_file.read()
+        print("Corpus is now {0} characters long".format(len(corpus_raw)))
+
+    # tokenizastion! saved the trained model here
+    tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+    # tokenize into sentences
+    raw_sentences = tokenizer.tokenize(corpus_raw)
+
+    # for each sentece, sentences where each word is tokenized
+    sentences = []
+    for raw_sentence in raw_sentences:
+        # raw_sentence = raw_sentences[0]
+        if len(raw_sentence) > 0:
+            sentences.append(sentence_to_wordlist(raw_sentence))
+
+    # count tokens, each one being a sentence
+    token_count = sum([len(sentence) for sentence in sentences])
+    print("The book corpus contains {0} tokens".format(token_count))
+
+    #### define hyperparameters ####
+
+    # 3 main tasks that vectors help with
+    # DISTANCE, SIMILARITY, RANKING
+
+    # dimensionality of the resulting word vectors.
+    # more dimensions, more computationally expensive to train
+    # but also more accurate
+    # more dimensions = more generalized
+    num_features = 300
+    # minimum word count threshold.
+    min_word_count = 3
+    # number of threads to run in parallel.
+    # more workers, faster we train
+    num_workers = multiprocessing.cpu_count()
+    # context window length.
+    context_size = 7
+    # downsample setting for frequent words.
+    # 0 - 1e-5 is good for this
+    downsampling = 1e-3
+    # seed for the RNG, to make the results reproducible.
+    # random number generator
+    # deterministic, good for debugging
+    seed = 1
+
+    if check_file_exist(got_model_path):
+        thrones2vec = w2v.Word2Vec.load(got_model_path)
+    else:
+        thrones2vec = w2v.Word2Vec(sg=1, seed=seed, workers=num_workers, size=num_features, min_count=min_word_count, window=context_size, sample=downsampling)
+
+    thrones2vec.build_vocab(sentences)
+    print("Word2Vec vocabulary length:", len(thrones2vec.wv.vocab))
+
+    thrones2vec.train(sentences, total_examples=thrones2vec.corpus_count, epochs=thrones2vec.epochs)
+
+    if save_model:
+        print("Saving model as './thrones2vec.w2v'")
+        thrones2vec.save(got_model_path)
+
+    # compress the word vectors into 2D space and plot them
+    tsne = sklearn.manifold.TSNE(n_components=2, random_state=0)
+    all_word_vectors_matrix = thrones2vec.wv.syn0
+
+    # train t-SNE, this could take a minute or two
+    all_word_vectors_matrix_2d = tsne.fit_transform(all_word_vectors_matrix)
+
+    # plot the big picture
+    # here we create a dataframe consisting list of words and there vector representation in 2D
+    points = pd.DataFrame([(word, coords[0], coords[1])
+                            for word, coords in [(word, all_word_vectors_matrix_2d[thrones2vec.wv.vocab[word].index])
+                                for word in thrones2vec.wv.vocab]],columns=["word", "x", "y"])
+
+    sns.set_context("poster")
+    points.plot.scatter("x", "y", s=10, figsize=(20, 12))
+    plt.show()
+
+    # zoom in to some interesting places
+
+
+
 
     return 0
 
+
+def main():
+
+    # run_on_imdb()
+    # run_on_ign()
+    # run_on_got()
+
+    return 0
 
 
 if __name__ == '__main__':

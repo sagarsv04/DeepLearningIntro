@@ -105,3 +105,4 @@ checkpoint
 *.index
 *.pkl
 *00001
+*.w2v
