@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import seaborn as sns
+from tqdm import tqdm
 # np.seterr(over='ignore')
 
 class NeuralNetwork():
@@ -147,10 +148,13 @@ def run_multiple_hyperparameters():
     alpha_list = np.arange(0.1, 15, 0.1)
     num_epochs = 100
 
+    training_data = np.asarray([[0, 0], [0, 1], [1, 0], [1, 1]]).reshape(4, 2, 1)
+    training_labels = np.asarray([[0], [1], [1], [0]])
+
     # Train for all hyperparameter combinations
     num_epoch_to_train = []
-    for nodes in nodes_list:
-        for alpha in alpha_list:
+    for nodes in tqdm(nodes_list):
+        for alpha in tqdm(alpha_list):
             nn = NeuralNetwork()
             nn.add_layer((2, nodes)) # Layer 2
             nn.add_layer((nodes, 1)) # Layer 3
@@ -182,6 +186,7 @@ def run_multiple_hyperparameters():
 
 def main():
 
+    run_single_hyperparameters()
     run_multiple_hyperparameters()
 
     return 0

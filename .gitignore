@@ -99,4 +99,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+checkpoint
 *.pdf
+*.meta
+*.index
+*.pkl
+*00001
