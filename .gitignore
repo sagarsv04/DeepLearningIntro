@@ -104,5 +104,6 @@ checkpoint
 *.meta
 *.index
 *.pkl
+*.mp3
 *00001
 *.w2v
