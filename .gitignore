@@ -109,3 +109,4 @@ checkpoint
 *.w2v
 /SpeedDating/*.csv
 /MakeDataAmazing/*.csv
+/ImageClassifier/data
