@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 import os
+from tqdm import tqdm
 import shutil
 import librosa
 import matplotlib.pyplot as plt
@@ -9,12 +10,16 @@ from sklearn.utils import shuffle
 
 
 # os.getcwd()
-# os.chdir(r'E:\to_be_deleted\DeepLearningIntro\MakeDataAmazing')
+# os.chdir(r'D:\CodeRepo\DeepLearningIntro\MakeDataAmazing')
 
 # to download the data use
 # http://mirg.city.ac.uk/codeapps/the-magnatagatune-dataset  >> Tag annotations
 
 annotations_file_path = './annotations_final.csv'
+
+src_path = './mp3_zip/'
+dest_path = './dataset_mp3/'
+npy_path = './dataset_npy/'
 
 
 # some of the tags in the dataset are really close to each other. Lets merge them together
@@ -50,6 +55,50 @@ def shuffle_data(newdata):
     return newdata
 
 
+def check_file_exist(file_path):
+    if os.path.exists(file_path):
+        return True
+    else:
+        return False
+
+
+def compute_melgram(audio_path):
+    # audio_path = dest_path+audio_path
+    # Audio preprocessing function
+    # Convert all the mp3 files into their corresponding mel-spectrograms (melgrams).
+    ''' Compute a mel-spectrogram and returns it in a shape of (1,1,96,1366), where
+    96 == #mel-bins and 1366 == #time frame
+    parameters
+    ----------
+    audio_path: path for the audio file.
+                Any format supported by audioread will work.
+    More info: http://librosa.github.io/librosa/generated/librosa.core.load.html#librosa.core.load
+    '''
+
+    # mel-spectrogram parameters
+    SR = 12000
+    N_FFT = 512
+    N_MELS = 96
+    HOP_LEN = 256
+    DURA = 29.12  # to make it 1366 frame..
+
+    src, sr = librosa.load(audio_path, sr=SR)  # whole signal
+    n_sample = src.shape[0]
+    n_sample_fit = int(DURA*SR)
+
+    if n_sample < n_sample_fit:  # if too short
+        src = np.hstack((src, np.zeros((int(DURA*SR) - n_sample,))))
+    elif n_sample > n_sample_fit:  # if too long
+        src = src[(n_sample-n_sample_fit)/2:(n_sample+n_sample_fit)/2]
+    logam = librosa.logamplitude
+    melgram = librosa.feature.melspectrogram
+    ret = logam(melgram(y=src, sr=SR, hop_length=HOP_LEN,
+                        n_fft=N_FFT, n_mels=N_MELS)**2,
+                ref_power=1.0)
+    ret = ret[np.newaxis, np.newaxis, :]
+    return ret
+
+
 def music_genre_classification():
 
     newdata = pd.read_csv(annotations_file_path, sep="\t")
@@ -81,6 +130,36 @@ def music_genre_classification():
     # Here, binary 0's and 1's from each column is changed to 'False' and 'True' by using '==' operator on the dataframe.
     final_matrix = pd.concat([newdata['clip_id'], newdata[final_columns_names]==1], axis=1)
 
+    # Iterate over the mp3 files, rename them to the clip_id and save it to another folder.
+    print("Renaming and moving all the audio files")
+    for id in tqdm(range(len(mp3_path))):
+        # id = 0
+        src = src_path + mp3_path[id]
+        dest = dest_path + str(clip_id[id]) + ".mp3"
+        if check_file_exist(src):
+            if not check_file_exist(dest):
+                shutil.copy2(src,dest)
+
+    # Get the absolute path of all audio files and save it to audio_paths array
+    audio_paths = []
+    # Variable to save the mp3 files that don't work
+    files_that_dont_work=[]
+
+    print("Saving all the audio files to npy")
+    for audio_path in tqdm(os.listdir(dest_path)):
+        # audio_path = os.listdir(dest_path)[0]
+        if check_file_exist(npy_path+audio_path.split(".")[-2]+'.npy'):
+            continue
+        else:
+            if audio_path.split(".")[-1] == "mp3":
+                try:
+                    melgram = compute_melgram(dest_path+audio_path)
+                    dest = npy_path+audio_path.split(".")[-2]+'.npy'
+                    np.save(dest, melgram)
+                except EOFError:
+                    files_that_dont_work.append(audio_path)
+                    continue
+
 
 
     return 0
@@ -88,7 +167,7 @@ def music_genre_classification():
 
 def main():
 
-
+    music_genre_classification()
 
 
     return 0
