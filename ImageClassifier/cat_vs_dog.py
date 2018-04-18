@@ -23,7 +23,7 @@ img_size = 150
 train_data_dir = './data/train/'
 validation_data_dir = './data/validation/'
 
-save_weight = False
+save_weight = True
 
 epoch = 10
 train_samples = 2048
@@ -171,7 +171,7 @@ def run_small_conv_net(model, train_generator, validation_generator, augmented):
             model.save_weights('./small_conv_net_'+str(img_size)+'.h5')
 
     # computing loss and accuracy
-    evaluation = model.evaluate_generator(validation_generator, nb_validation_samples)
+    evaluation = model.evaluate_generator(validation_generator, validation_samples)
     if augmented:
         print("Model evaluation with data augmentation {0}, {1}".format(evaluation[0], evaluation[1]))
     else:
@@ -197,7 +197,7 @@ def run_vgg_16(model, train_generator, validation_generator, augmented):
             model.save_weights('./vgg_conv_net_'+str(img_size)+'.h5')
 
     # computing loss and accuracy
-    evaluation = model.evaluate_generator(validation_generator, nb_validation_samples)
+    evaluation = model.evaluate_generator(validation_generator, validation_samples)
     if augmented:
         print("Model vgg16 evaluation with data augmentation {0}, {1}".format(evaluation[0], evaluation[1]))
     else:

@@ -107,6 +107,7 @@ checkpoint
 *.mp3
 *00001
 *.w2v
+*.h5
 /SpeedDating/*.csv
 /MakeDataAmazing/*.csv
 /ImageClassifier/data
