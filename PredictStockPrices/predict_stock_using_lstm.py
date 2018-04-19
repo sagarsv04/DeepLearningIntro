@@ -60,11 +60,11 @@ def get_stock_data(stock_data_path, normalized=False):
 	df_data['High'] = df_data['High'] / 1000
 	df_data['Open'] = df_data['Open'] / 1000
 	df_data['Close'] = df_data['Close'] / 1000
-	df_data = df_data[['Open','High','Close']]
+	df_data['Low'] = df_data['Low'] / 1000
+	df_data = df_data[['Open', 'High', 'Low', 'Close']]
 	if normalized:
 		# normalize the data
 		pass
-
 
 	return df_data
 
@@ -161,25 +161,25 @@ def create_lstm_model_one():
 def create_lstm_model_two(layers):
 	# layers = [3,window,1]
 
-    model = Sequential()
-    model.add(LSTM(input_shape=(layers[1], layers[0]), units=128, return_sequences=True))
-    model.add(Dropout(0.2))
+	model = Sequential()
+	model.add(LSTM(input_shape=(layers[1], layers[0]), units=128, return_sequences=True))
+	model.add(Dropout(0.2))
 
-    model.add(LSTM(input_shape=(layers[1], layers[0]), units=64, return_sequences=False))
-    model.add(Dropout(0.2))
+	model.add(LSTM(input_shape=(layers[1], layers[0]), units=64, return_sequences=False))
+	model.add(Dropout(0.2))
 
-    model.add(Dense(units=16, kernel_initializer='uniform', activation='relu'))
-    model.add(Dense(units=3, kernel_initializer='uniform', activation='relu'))
+	model.add(Dense(units=16, kernel_initializer='uniform', activation='relu'))
+	model.add(Dense(units=layers[0], kernel_initializer='uniform', activation='relu'))
 
-    model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
+	model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
-    return model
+	return model
 
 
 def run_on_close_price_csv():
 
-	X_train, y_train, X_test, y_test = load_data(data_path, 50, True, True)
-	model = create_lstm_model()
+	X_train, y_train, X_test, y_test = load_data(data_path, 50, True, False)
+	model = create_lstm_model_one()
 	model.fit(x=X_train, y=y_train, batch_size=512, epochs=10, validation_split=0.05, verbose=1)
 
 	predictions = predict_sequences_multiple(model, X_test, 50, 50)
@@ -209,13 +209,26 @@ def run_on_stock_csv():
 	testScore = model.evaluate(X_test, y_test, verbose=1)
 	print('Test Score: %.2f MSE (%.2f RMSE)' % (testScore[0], math.sqrt(testScore[0])))
 
+	diff=[]
+	ratio=[]
+	p = model.predict(X_test)
+	for u in range(len(y_test)):
+		pr = p[u][0]
+		ratio.append((y_test[u]/pr)-1)
+		diff.append(abs(y_test[u]- pr))
+
+	plt.plot(p,color='red', label='prediction')
+	plt.plot(y_test,color='blue', label='y_test')
+	plt.legend(loc='upper left')
+	plt.show()
+
 	return 0
 
 
 def main():
 
-	# run_on_close_price_csv()
-	run_on_stock_csv()
+	run_on_close_price_csv()
+	# run_on_stock_csv()
 
 	return 0
 
