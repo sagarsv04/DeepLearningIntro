@@ -104,7 +104,7 @@ def create_vgg_16_conv_net():
     model.add(Dense(1))
     model.add(Activation('sigmoid'))
     # Configure the model for training.
-    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+    model.compile(loss='binary_crossentropy', optimizer=optimizers.SGD(lr=1e-4, momentum=0.9), metrics=['accuracy'])
 
     return model
 
