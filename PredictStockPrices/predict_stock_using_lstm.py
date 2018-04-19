@@ -61,7 +61,8 @@ def get_stock_data(stock_data_path, normalized=False):
 	df_data['Open'] = df_data['Open'] / 1000
 	df_data['Close'] = df_data['Close'] / 1000
 	df_data['Low'] = df_data['Low'] / 1000
-	df_data = df_data[['Open', 'High', 'Low', 'Close']]
+	df_data = df_data[['Open', 'High', 'Low', 'Close']]  # taking 4 features
+	# df_data = df_data[['Open', 'High', 'Close']] # taking 3 features
 	if normalized:
 		# normalize the data
 		pass
@@ -95,11 +96,15 @@ def load_data(filename, seq_len, normalise_window, ohcl=False):
 
 	row = round(0.9 * result.shape[0])
 	train = result[:int(row), :] # len(train)
-	np.random.shuffle(train)
+	# np.random.shuffle(train)
 	x_train = train[:, :-1] # len(x_train)
-	y_train = train[:, -1] # len(y_train)
 	x_test = result[int(row):, :-1]
-	y_test = result[int(row):, -1]
+	if ohcl:
+		y_train = train[:, -1][:,-1] # len(y_train)
+		y_test = result[int(row):, -1][:,-1]
+	else:
+		y_train = train[:, -1] # len(y_train)
+		y_test = result[int(row):, -1]
 
 	x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], amount_of_features))
 	x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], amount_of_features))
@@ -169,7 +174,8 @@ def create_lstm_model_two(layers):
 	model.add(Dropout(0.2))
 
 	model.add(Dense(units=16, kernel_initializer='uniform', activation='relu'))
-	model.add(Dense(units=layers[0], kernel_initializer='uniform', activation='relu'))
+	# model.add(Dense(units=layers[0], kernel_initializer='uniform', activation='relu'))
+	model.add(Dense(units=1, kernel_initializer='uniform', activation='relu'))
 
 	model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
@@ -197,9 +203,9 @@ def run_on_stock_csv():
 	X_train, y_train, X_test, y_test = load_data(df_data[::-1], window, False, True)
 	print("X_train", X_train.shape)
 	print("y_train", y_train.shape)
-	print("X_test", X_test.shape)
-	print("y_test", y_test.shape)
-	# model = build_model([3,lag,1])
+	# print("X_test", X_test.shape)
+	# print("y_test", y_test.shape)
+
 	model = create_lstm_model_two([X_train.shape[-1], window, 1])
 
 	model.fit(x=X_train, y=y_train, batch_size=512, epochs=10, validation_split=0.1, verbose=1)
@@ -227,8 +233,8 @@ def run_on_stock_csv():
 
 def main():
 
-	run_on_close_price_csv()
-	# run_on_stock_csv()
+	# run_on_close_price_csv()
+	run_on_stock_csv()
 
 	return 0
 
