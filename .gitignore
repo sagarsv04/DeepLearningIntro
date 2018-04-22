@@ -111,3 +111,4 @@ checkpoint
 /SpeedDating/*.csv
 /MakeDataAmazing/*.csv
 /ImageClassifier/data
+*.tfmodel

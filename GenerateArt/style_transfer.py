@@ -1,11 +1,10 @@
 from __future__ import print_function
-
 import time
 import numpy as np
 from PIL import Image
 import cv2
 import os
-
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # to run on cpu
 from keras import backend
 from keras.models import Model
 from keras.applications.vgg16 import VGG16
@@ -15,19 +14,19 @@ from scipy.misc import imsave
 
 
 # os.getcwd()
-# os.chdir(r'E:\to_be_deleted\DeepLearningIntro\GenerateArt')
+# os.chdir(r'D:\CodeRepo\DeepLearningIntro\GenerateArt')
 
 
-height = 512
-width = 512
+height = 256
+width = 256
 
 content_weight = 0.025
-style_weight = 5.0
+style_weight = 3.0
 total_variation_weight = 1.0
 iterations = 10
 
 content_image_path = './images/elephant.jpg'
-style_image_path = './images/styles/wave.jpg'
+style_image_path = './images/styles/forest.jpg'
 content_video_path = './images/sample.mp4'
 style_image_paths = [style_image_path]
 
@@ -145,26 +144,43 @@ def total_variation_loss(x):
 	return backend.sum(backend.pow(a + b, 1.25))
 
 
-def eval_loss_and_grads(x, f_outputs):
-	x = x.reshape((1, height, width, 3))
-	outs = f_outputs([x])
-	loss_value = outs[0]
-	grad_values = outs[1].flatten().astype('float64')
-	return loss_value, grad_values
+def eval_loss_and_grads(x, f_outputs, content_images):
+	if content_images == None:
+		x = x.reshape((1, height, width, 3))
+		outs = f_outputs([x])
+		loss_value = outs[0]
+		grad_values = outs[1].flatten().astype('float64')
+		return loss_value, grad_values
+	else:
+		x = x.reshape((len(content_images), 1, height, width, 3))
+		xs = []
+		for el in x:
+			el1 = el.reshape((1, height, width, 3))
+			xs.append(el1)
+		outs = f_outputs(xs)
+		loss_value = 0.0
+		for idx in range(len(content_images)):
+			loss_value += outs[idx]
+		grad_values = []
+		for idx in range(len(content_images)):
+			grad_values.append(outs[len(content_images)+idx])
+		grad_values = np.asarray(grad_values)
+		return loss_value, grad_values.flatten().astype('float64')
 
 
 class Evaluator(object):
 	# We then introduce an Evaluator class that computes loss and gradients in one pass while retrieving them via two separate functions
 	# total_variation_loss and eval_loss_and_grads.
 	# This is done because scipy.optimize requires separate functions for loss and gradients, but computing them separately would be inefficient.
-	def __init__(self, f_outputs):
+	def __init__(self, f_outputs, content_images):
 		self.loss_value = None
 		self.grads_values = None
 		self.f_outputs = f_outputs
+		self.content_images = content_images
 
 	def loss(self, x):
 		assert self.loss_value is None
-		loss_value, grad_values = eval_loss_and_grads(x, self.f_outputs)
+		loss_value, grad_values = eval_loss_and_grads(x, self.f_outputs, self.content_images)
 		self.loss_value = loss_value
 		self.grad_values = grad_values
 		return self.loss_value
@@ -223,7 +239,7 @@ def run_style_transfer():
 	outputs += grads
 	f_outputs = backend.function([combination_image], outputs)
 
-	evaluator = Evaluator(f_outputs)
+	evaluator = Evaluator(f_outputs, None)
 	x = np.random.uniform(0, 255, (1, height, width, 3)) - 128.
 
 	for i in range(iterations):
@@ -246,6 +262,8 @@ def run_style_transfer():
 
 
 def run_on_video():
+
+	print("Style Tranfer on Video")
 
 	content_images, style_images = load_video()
 	content_images = get_video_images(content_images)
@@ -276,6 +294,13 @@ def run_on_video():
 		losses.append(loss)
 
 	layer_features = layers['block2_conv2']
+
+	for content_idx in range(len(content_images)):
+		content_features = layer_features[content_idx, :, :, :]
+		combination_features = layer_features[len(content_images) + len(style_images) + content_idx, :, :, :]
+		losses[content_idx] += content_weight * content_loss(content_features, combination_features)
+
+
 	feature_layers = ['block1_conv2', 'block2_conv2', 'block3_conv3', 'block4_conv3', 'block5_conv3']
 
 	for content_idx in range(len(content_images)):
@@ -298,7 +323,7 @@ def run_on_video():
 	# Create the function from input combination_img to the loss and gradients
 	f_outputs = backend.function(combination_images, outputs)
 
-	evaluator = Evaluator(f_outputs)
+	evaluator = Evaluator(f_outputs, content_images)
 
 	xs = []
 	for idx in range(len(content_images)):
@@ -333,8 +358,8 @@ def run_on_video():
 
 def main():
 
-	# run_style_transfer()
-	run_on_video()
+	run_style_transfer()
+	# run_on_video()
 
 	return 0
 
