@@ -1,5 +1,5 @@
 
-from itertools import izip_longest
+from itertools import zip_longest
 import random
 
 from music21 import *
@@ -26,7 +26,7 @@ def __roundUpDown(num, mult, upDown):
     length. '''
 def __grouper(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
-    return izip_longest(*args, fillvalue=fillvalue)
+    return zip_longest(*args, fillvalue=fillvalue)
 
 #----------------------------PUBLIC FUNCTIONS----------------------------------#
 
@@ -70,4 +70,4 @@ def clean_up_notes(curr_notes):
                 removeIxs.append((ix + 1))
     curr_notes = [i for ix, i in enumerate(curr_notes) if ix not in removeIxs]
 
-return curr_notes
+    return curr_notes
