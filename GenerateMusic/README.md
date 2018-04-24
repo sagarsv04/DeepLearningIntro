@@ -1,13 +1,18 @@
 # GenerateMusic
 
 This is the code for generating music using LSTM network.
-It uses Keras & Theano, two deep learning libraries, to generate jazz music. Specifically, it builds a two-layer LSTM, learning from the given MIDI file.
+It uses Keras deep learning library, to generate jazz music. Specifically, it builds a two-layer LSTM, learning from the given MIDI file.
 
 
 Language
 ============
-
 * Python 3
+
+
+Version
+============
+music21 5.1.0
+python 3.5.2
 
 
 Usage
@@ -16,10 +21,6 @@ Usage
 Run on CPU with command:  
 
     python generator.py [# of epochs]
-
-Run on GPU with command:
-
-    THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32 python generator.py [# of epochs]
 
 
 Credits

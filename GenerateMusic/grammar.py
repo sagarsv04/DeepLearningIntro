@@ -271,7 +271,7 @@ def unparse_grammar(m1_grammar, m1_chords):
 
             if terms[0] == 'C':
                 relevantChordTones = []
-                for i in xrange(0, numNotes):
+                for i in range(0, numNotes):
                     currNote = note.Note(lowPitch.transpose(i).simplifyEnharmonic())
                     if __is_chord_tone(lastChord, currNote):
                         relevantChordTones.append(currNote)
@@ -290,7 +290,7 @@ def unparse_grammar(m1_grammar, m1_chords):
             # Case S: scale note, must be within increment.
             elif terms[0] == 'S':
                 relevantScaleTones = []
-                for i in xrange(0, numNotes):
+                for i in range(0, numNotes):
                     currNote = note.Note(lowPitch.transpose(i).simplifyEnharmonic())
                     if __is_scale_tone(lastChord, currNote):
                         relevantScaleTones.append(currNote)
@@ -310,7 +310,7 @@ def unparse_grammar(m1_grammar, m1_chords):
             # For now: handle both A and X cases.
             else:
                 relevantApproachTones = []
-                for i in xrange(0, numNotes):
+                for i in range(0, numNotes):
                     currNote = note.Note(lowPitch.transpose(i).simplifyEnharmonic())
                     if __is_approach_tone(lastChord, currNote):
                         relevantApproachTones.append(currNote)

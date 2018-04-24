@@ -39,6 +39,6 @@ def build_model(corpus, val_indices, max_len, N_epochs=128):
 
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
 
-    model.fit(X, y, batch_size=128, nb_epoch=N_epochs)
+    model.fit(X, y, batch_size=128, epochs=N_epochs)
 
     return model

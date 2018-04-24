@@ -10,14 +10,15 @@ import numpy as np
 # from sklearn.preprocessing import MinMaxScaler
 # import mido
 
+# os.getcwd()
+# os.chdir(r'E:\to_be_deleted\DeepLearningIntro\GenerateMusic')
+
 from music21 import *
 from grammar import *
 from preprocess import *
 from quality_assurance import *
 import lstm
 
-# os.getcwd()
-# os.chdir(r'E:\to_be_deleted\DeepLearningIntro\GenerateMusic')
 
 # NOTE :: Song genrated method "generate_music" havs no sound, Hence going to siraj's files
 
@@ -128,6 +129,15 @@ def save_predicted_track(prediction, save_path):
 	return 0
 
 
+def save_midi_stream(midi_events, save_path):
+
+	midi_events.open(save_path, 'wb')
+	midi_events.write()
+	midi_events.close()
+
+	return 0
+
+
 def build_lstm_model(max_len, n_values):
 
 	print('Build model...')
@@ -181,8 +191,12 @@ def generate_music(arg):
 ''' Helper function to sample an index from a probability array '''
 def __sample(a, temperature=1.0):
 	a = np.log(a) / temperature
-	a = np.exp(a) / np.sum(np.exp(a))
-	return np.argmax(np.random.multinomial(1, a, 1))
+	dist = np.exp(a)/np.sum(np.exp(a))
+	choices = range(len(a))
+	return np.random.choice(choices, p=dist)
+	# a = np.log(a) / temperature
+	# a = np.exp(a) / np.sum(np.exp(a))
+	# return np.argmax(np.random.multinomial(1, a, 1))
 
 ''' Helper function to generate a predicted value from a given matrix '''
 def __predict(model, x, indices_val, diversity):
@@ -218,8 +232,7 @@ def __generate_grammar(model, corpus, abstract_grammars, values, val_indices,
 				len(next_val.split(',')) != 2):
 				# give up after 1000 tries; random from input's first notes
 				if tries >= max_tries:
-					print('Gave up on first note generation after', max_tries,
-						'tries')
+					print('Gave up on first note generation after', max_tries, 'tries')
 					# np.random is exclusive to high
 					rand = np.random.randint(0, len(abstract_grammars))
 					next_val = abstract_grammars[rand].split(' ')[0]
@@ -243,20 +256,19 @@ def __generate_grammar(model, corpus, abstract_grammars, values, val_indices,
 
 
 def music_generator(arg):
-
-	data_fn = midi_file_path
-	out_fn =  midi_out_base + str(arg) + '_prediction_on_' + data_fn.split('/')[-1]
+	# arg = 300
+	file_path = midi_file_path
+	save_path =  midi_out_base + str(arg) + '_prediction_on_' + file_path.split('/')[-1]
 	N_epochs = arg
-
+	# play_midi_file(save_path)
 	# get data
-	chords, abstract_grammars = get_musical_data(data_fn)
+	chords, abstract_grammars = get_musical_data(file_path)
 	corpus, values, val_indices, indices_val = get_corpus_data(abstract_grammars)
 	print('corpus length:', len(corpus))
 	print('total # of values:', len(values))
 
 	# build model
-	model = lstm.build_model(corpus=corpus, val_indices=val_indices,
-							 max_len=max_len, N_epochs=N_epochs)
+	model = lstm.build_model(corpus=corpus, val_indices=val_indices, max_len=max_len, N_epochs=N_epochs)
 
 	# set up audio stream
 	out_stream = stream.Stream()
@@ -265,6 +277,7 @@ def music_generator(arg):
 	curr_offset = 0.0
 	loopEnd = len(chords)
 	for loopIndex in range(1, loopEnd):
+		# loopIndex = 1
 		# get chords from file
 		curr_chords = stream.Voice()
 		for j in chords[loopIndex]:
@@ -307,14 +320,14 @@ def music_generator(arg):
 	out_stream.insert(0.0, tempo.MetronomeMark(number=bpm))
 
 	# Play the final stream through output (see 'play' lambda function above)
-	play = lambda x: midi.realtime.StreamPlayer(x).play()
-	play(out_stream)
+	# play = lambda x: midi.realtime.StreamPlayer(x).play()
+	# play(out_stream)
 
 	# save stream
-	mf = midi.translate.streamToMidiFile(out_stream)
-	mf.open(out_fn, 'wb')
-	mf.write()
-	mf.close()
+	print("Saving the generated file as:", save_path)
+	midi_events = midi.translate.streamToMidiFile(out_stream)
+	save_midi_stream(midi_events, save_path)
+
 
 	return 0
 
