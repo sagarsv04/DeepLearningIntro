@@ -112,3 +112,4 @@ checkpoint
 /MakeDataAmazing/*.csv
 /ImageClassifier/data
 *.tfmodel
+/TextSummarizer/bbc/
