@@ -12,5 +12,6 @@ Language
 
 Credits
 ============
-Credits to [Siraj](https://github.com/llSourcell)\n
+Credits to [Siraj](https://github.com/llSourcell)
+
 Also, I have incorporated other github repositories on similar problems and dataset.
