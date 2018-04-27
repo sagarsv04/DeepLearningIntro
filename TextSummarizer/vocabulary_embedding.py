@@ -20,6 +20,10 @@ vocab_size = 40000
 embedding_dim = 100
 to_lower = False  # dont lower case the text
 
+empty = 0 # RNN mask of no data
+eos = 1  # end of sentence
+start_idx = eos+1 # first real word
+
 
 def get_vocab_count():
 	# read pickle file and create vocab_count
@@ -43,12 +47,23 @@ def plot_word_distribution(vocab_count, vocab):
 	plt.plot([vocab_count[word] for word in vocab]);
 	plt.gca().set_xscale("log", nonposx='clip')
 	plt.gca().set_yscale("log", nonposy='clip')
-	plt.title('word distribution in headlines and discription')
-	plt.xlabel('rank')
-	plt.ylabel('total appearances');
+	plt.title('Word distribution in headlines and discription')
+	plt.xlabel('Rank')
+	plt.ylabel('Total appearances');
 	plt.show()
 
 	return 0
+
+
+def get_idx(vocab):
+	# Index words
+    word2idx = dict((word, idx+start_idx) for idx,word in enumerate(vocab))
+    word2idx['<empty>'] = empty
+    word2idx['<eos>'] = eos
+	# check if below is correct
+    idx2word = dict((idx,word) for word,idx in enumerate(word2idx))
+	word2idx.
+    return word2idx, idx2word
 
 
 def main():
