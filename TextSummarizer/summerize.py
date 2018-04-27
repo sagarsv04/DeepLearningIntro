@@ -13,6 +13,7 @@ import copy
 
 # os.getcwd()
 # os.chdir(r'E:\to_be_deleted\DeepLearningIntro\TextSummarizer')
+# os.chdir(r'D:\CodeRepo\DeepLearningIntro\TextSummarizer')
 
 
 data_dir_base = "./bbc/"
@@ -71,10 +72,8 @@ def create_pickle_file(data_pickle_path):
 			# print(data)
 			# print('\n\n')
 			is_empty = False
-
 		if is_empty:
 			print("Empty Generator Found!")
-
 	else:
 		print("Pickle file {0} already exist.".format(data_pickle_path))
 
