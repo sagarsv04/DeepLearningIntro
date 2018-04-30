@@ -108,6 +108,7 @@ checkpoint
 *00001
 *.w2v
 *.h5
+*.pickle
 /SpeedDating/*.csv
 /MakeDataAmazing/*.csv
 /ImageClassifier/data

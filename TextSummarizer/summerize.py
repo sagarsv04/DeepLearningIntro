@@ -5,7 +5,7 @@ from collections import Counter
 # import keras
 import os
 import copy
-
+import vocabulary_embedding as vocab
 
 # download the data from below link
 # http://mlg.ucd.ie/datasets/bbc.html
@@ -112,7 +112,9 @@ def create_pickle(data_dir_base):
 def main():
 
 	create_pickle(data_dir_base)
+	vocab.main()
 
+	
 	return 0
 
 
