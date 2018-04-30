@@ -233,6 +233,7 @@ def save_data_to_pickle(embedding_matrix, idx2word, word2idx, glove_index2index,
 
 	if not check_file_exist(data_set_file_path):
 		print("Storing data set to: {0}".format(data_set_file_path))
+		data_set_length = 0
 		with open(pickle_file_path, 'rb') as f:
 			for title, body in load_data_from_pickle(f):
 				with open(data_set_file_path, 'ab') as fb:
@@ -241,6 +242,11 @@ def save_data_to_pickle(embedding_matrix, idx2word, word2idx, glove_index2index,
 						body = body.lower()
 					# X,Y = title, body
 					pickle.dump((title, body), fb)
+					data_set_length += 1
+		if data_set_length > 0:
+			file_ext = data_set_file_path.split('.')[-1]
+			with open(data_set_file_path[:-len('.'+file_ext)]+'_size.'+file_ext, 'wb') as f:
+				pickle.dump({"size": data_set_length}, f)
 	else:
 		print("File already exist: {0}".format(data_set_file_path))
 
