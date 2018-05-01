@@ -131,7 +131,7 @@ def simple_context(X, mask, n=activation_rnn_size, maxlend=maxlend, maxlenh=maxl
 	# activation for every head word and every desc word
 	activation_energies = K.batch_dot(head_activations, desc_activations, axes=[2,2])
 	# make sure we dont use description words that are masked out
-	activation_energies = activation_energies + -1e20*K.expand_dims(-K.cast(mask[:, :maxlend],dtype='float32'),axis=1)
+	activation_energies = activation_energies + -1e20*K.expand_dims(K.cast(mask[:, :maxlend],dtype='float32'), axis=-1)
 
 	# for every head word compute weights for every desc word
 	activation_energies = K.reshape(activation_energies,(-1,maxlend))
@@ -140,7 +140,7 @@ def simple_context(X, mask, n=activation_rnn_size, maxlend=maxlend, maxlenh=maxl
 
 	# for every head word compute weighted average of desc words
 	desc_avg_word = K.batch_dot(activation_weights, desc_words, axes=[2,1])
-	return K.concatenate((desc_avg_word, head_words))
+	return K.concatenate([desc_avg_word, head_words])
 
 
 class SimpleContext(Lambda):

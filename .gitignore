@@ -114,3 +114,5 @@ checkpoint
 /ImageClassifier/data
 *.tfmodel
 /TextSummarizer/bbc/
+*.tokens
+*.raw
