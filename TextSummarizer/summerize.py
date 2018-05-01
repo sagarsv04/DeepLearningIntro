@@ -104,7 +104,7 @@ def read_pickle_file(pickle_file_path):
 def create_pickle(data_dir_base):
 
 	pickle_file_path = create_pickle_file(data_pickle_path)
-	read_pickle_file(pickle_file_path)
+	# read_pickle_file(pickle_file_path)
 
 	return 0
 
