@@ -4,6 +4,10 @@ import random # generate probability distribution
 import tensorflow as tf # machine learning
 import datetime # clock training time
 import sys
+import os
+
+# os.chdir(r'E:\to_be_deleted\DeepLearningIntro\TensorflowLSTM')
+# os.chdir(r'D:\CodeRepo\DeepLearningIntro\TextSummarizer')
 
 # dataset source
 # https://einstein.ai/research/the-wikitext-long-term-dependency-language-modeling-dataset
@@ -15,7 +19,7 @@ raw_test_data_path = "./wikitext_103/wiki.test.raw"
 percent_text_data = 5
 
 # 0 to train and 1 to test
-train_or_test = 1
+train_or_test = 0
 
 len_per_section = 50
 # The higher the batch size, the more memory space you'll need.
@@ -266,17 +270,16 @@ def create_train_test_our_model( X, Y, batch_size, len_per_section, char_size, c
 		###########
 		#Test
 		###########
-		if train_or_test:
-			test_data = tf.placeholder(tf.float32, shape=[1, char_size])
-			test_output = tf.Variable(tf.zeros([1, hidden_nodes]))
-			test_state = tf.Variable(tf.zeros([1, hidden_nodes]))
+		test_data = tf.placeholder(tf.float32, shape=[1, char_size])
+		test_output = tf.Variable(tf.zeros([1, hidden_nodes]))
+		test_state = tf.Variable(tf.zeros([1, hidden_nodes]))
 
-			# Reset at the beginning of each test
-			reset_test_state = tf.group(test_output.assign(tf.zeros([1, hidden_nodes])), test_state.assign(tf.zeros([1, hidden_nodes])))
+		# Reset at the beginning of each test
+		reset_test_state = tf.group(test_output.assign(tf.zeros([1, hidden_nodes])), test_state.assign(tf.zeros([1, hidden_nodes])))
 
-			# LSTM
-			test_output, test_state = lstm(test_data, test_output, test_state)
-			test_prediction = tf.nn.softmax(tf.matmul(test_output, w) + b)
+		# LSTM
+		test_output, test_state = lstm(test_data, test_output, test_state)
+		test_prediction = tf.nn.softmax(tf.matmul(test_output, w) + b)
 
 	if not train_or_test:
 		# timew to train the model, initialize a session with a graph
@@ -373,7 +376,7 @@ def run_generator(text_data, char2id, id2char, char_size, input_text=""):
 		tf.gfile.MakeDirs(checkpoint_directory)
 		print('Training data size:', len(X))
 		print('Approximate steps per epoch:', int(len(X)/batch_size))
-		create_train_test_our_model( X, Y, batch_size, len_per_section, char_size, input_text)
+		create_train_test_our_model( X, Y, batch_size, len_per_section, char_size, char2id, id2char, input_text)
 	else:
 		print('Testing model on input:', input_text)
 		create_train_test_our_model( None, None, batch_size, len_per_section, char_size, char2id, id2char, input_text)

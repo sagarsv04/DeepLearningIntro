@@ -116,3 +116,4 @@ checkpoint
 /TextSummarizer/bbc/
 *.tokens
 *.raw
+*/reference
