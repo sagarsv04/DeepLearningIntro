@@ -3,6 +3,7 @@ import numpy as np # vectorization
 import random # generate probability distribution
 import tensorflow as tf # machine learning
 import datetime # clock training time
+import sys
 
 # dataset source
 # https://einstein.ai/research/the-wikitext-long-term-dependency-language-modeling-dataset
@@ -13,17 +14,19 @@ raw_test_data_path = "./wikitext_103/wiki.test.raw"
 # NOTE: This code is not memory efficient, Lower the percent_text_data to run on smaller dataset
 percent_text_data = 5
 
+# 0 to train and 1 to test
+train_or_test = 1
+
+len_per_section = 50
 # The higher the batch size, the more memory space you'll need.
 batch_size = 512
 # total iterations
-max_steps = 72001
+max_steps = 1001
 # how often to log?
 log_every = 100
 # how often to save?
-save_every = 6000
+save_every = 333
 hidden_nodes = 1024
-# starting text
-test_start = 'I am thinking that'
 # to save our model
 checkpoint_directory = './ckpt'
 
@@ -81,9 +84,8 @@ def sample(prediction):
 	return char_one_hot
 
 
-def get_x_y_data(text_data, char_size):
+def get_x_y_data(text_data, char2id, char_size):
 	# vectorize our data to feed it into model
-	len_per_section = 50
 	skip = 2
 	sections = []
 	next_chars = []
@@ -117,13 +119,7 @@ def get_x_y_data(text_data, char_size):
 	return X, Y
 
 
-def create_computation_graph(batch_size, len_per_section, char_size):
-
-
-	return graph
-
-
-def create_train_our_model( X, Y, batch_size, len_per_section, char_size):
+def create_train_test_our_model( X, Y, batch_size, len_per_section, char_size, char2id, id2char, input_text):
 	# build our model time
 	graph = tf.Graph()
 	# if multiple graphs, but none here jsut one
@@ -270,83 +266,134 @@ def create_train_our_model( X, Y, batch_size, len_per_section, char_size):
 		###########
 		#Test
 		###########
-		#test_data = tf.placeholder(tf.float32, shape=[1, char_size])
-		#test_output = tf.Variable(tf.zeros([1, hidden_nodes]))
-		#test_state = tf.Variable(tf.zeros([1, hidden_nodes]))
+		if train_or_test:
+			test_data = tf.placeholder(tf.float32, shape=[1, char_size])
+			test_output = tf.Variable(tf.zeros([1, hidden_nodes]))
+			test_state = tf.Variable(tf.zeros([1, hidden_nodes]))
 
-		#Reset at the beginning of each test
-		#reset_test_state = tf.group(test_output.assign(tf.zeros([1, hidden_nodes])),
-									#test_state.assign(tf.zeros([1, hidden_nodes])))
+			# Reset at the beginning of each test
+			reset_test_state = tf.group(test_output.assign(tf.zeros([1, hidden_nodes])), test_state.assign(tf.zeros([1, hidden_nodes])))
 
-		#LSTM
-		#test_output, test_state = lstm(test_data, test_output, test_state)
-		#test_prediction = tf.nn.softmax(tf.matmul(test_output, w) + b)
-	# timew to train the model, initialize a session with a graph
-	with tf.Session(graph=graph) as sess:
-		# sess = tf.Session(graph=graph)
-		# sess.close()
-		# sess.graph
-		# standard init step
-		# tf.global_variables_initializer().run(session=sess)
-		tf.global_variables_initializer().run()
-		offset = 0
-		saver = tf.train.Saver()
-		# for each training step
-		for step in range(max_steps):
-			# step = 0
-			# starts off as 0
-			offset = offset % len(X)
-			#calculate batch data and labels to feed model iteratively
-			if offset <= (len(X) - batch_size):
-				#first part
-				batch_data = X[offset: offset + batch_size]
-				# len(batch_data[0][0])
-				batch_labels = Y[offset: offset + batch_size]
-				# len(batch_labels[0])
-				offset += batch_size
-			#until when offset  = batch size, then we
-			# labels
-			else:
-				#last part
-				to_add = batch_size - (len(X) - offset)
-				batch_data = np.concatenate((X[offset: len(X)], X[0: to_add]))
-				batch_labels = np.concatenate((Y[offset: len(X)], Y[0: to_add]))
-				offset = to_add
+			# LSTM
+			test_output, test_state = lstm(test_data, test_output, test_state)
+			test_prediction = tf.nn.softmax(tf.matmul(test_output, w) + b)
 
-			#optimize!!
-			_, training_loss = sess.run([optimizer, loss], feed_dict={data: batch_data, labels: batch_labels})
+	if not train_or_test:
+		# timew to train the model, initialize a session with a graph
+		with tf.Session(graph=graph) as sess:
+			# sess = tf.Session(graph=graph)
+			# sess.close()
+			# sess.graph
+			# standard init step
+			# tf.global_variables_initializer().run(session=sess)
+			tf.global_variables_initializer().run()
+			offset = 0
+			saver = tf.train.Saver()
+			# for each training step
+			for step in range(max_steps):
+				# step = 0
+				# starts off as 0
+				offset = offset % len(X)
+				#calculate batch data and labels to feed model iteratively
+				if offset <= (len(X) - batch_size):
+					#first part
+					batch_data = X[offset: offset + batch_size]
+					# len(batch_data[0][0])
+					batch_labels = Y[offset: offset + batch_size]
+					# len(batch_labels[0])
+					offset += batch_size
+				#until when offset  = batch size, then we
+				# labels
+				else:
+					#last part
+					to_add = batch_size - (len(X) - offset)
+					batch_data = np.concatenate((X[offset: len(X)], X[0: to_add]))
+					batch_labels = np.concatenate((Y[offset: len(X)], Y[0: to_add]))
+					offset = to_add
 
-			if step % 10 == 0:
-				print('Training loss at step %d: %.2f (%s)' % (step, training_loss, datetime.datetime.now()))
+				#optimize!!
+				_, training_loss = sess.run([optimizer, loss], feed_dict={data: batch_data, labels: batch_labels})
+
+				if step % 10 == 0:
+					print('Training loss at step %d: %.2f (%s)' % (step, training_loss, datetime.datetime.now()))
 
 				if step % save_every == 0:
 					saver.save(sess, checkpoint_directory + '/model', global_step=step)
+	else:
+		with tf.Session(graph=graph) as sess:
+		    #init graph, load model
+		    tf.global_variables_initializer().run()
+		    model = tf.train.latest_checkpoint(checkpoint_directory)
+		    saver = tf.train.Saver()
+		    saver.restore(sess, model)
+
+		    #set input variable to generate chars from
+		    reset_test_state.run()
+		    test_generated = input_text
+
+		    #for every char in the input sentennce
+		    for i in range(len(input_text) - 1):
+		        #initialize an empty char store
+		        test_X = np.zeros((1, char_size))
+		        #store it in id from
+		        test_X[0, char2id[input_text[i]]] = 1.
+		        #feed it to model, test_prediction is the output value
+		        _ = sess.run(test_prediction, feed_dict={test_data: test_X})
+
+
+		    #where we store encoded char predictions
+		    test_X = np.zeros((1, char_size))
+		    test_X[0, char2id[input_text[-1]]] = 1.
+
+		    #lets generate 500 characters
+		    for i in range(500):
+		        #get each prediction probability
+		        prediction = test_prediction.eval({test_data: test_X})[0]
+		        #one hot encode it
+		        next_char_one_hot = sample(prediction)
+		        #get the indices of the max values (highest probability)  and convert to char
+		        next_char = id2char[np.argmax(next_char_one_hot)]
+		        #add each char to the output text iteratively
+		        test_generated += next_char
+		        #update the
+		        test_X = next_char_one_hot.reshape((1, char_size))
+
+		    print(test_generated)
 
 	return 0
 
 
-def run_generator(text_data, char2id, id2char, char_size):
+def run_generator(text_data, char2id, id2char, char_size, input_text=""):
 
-	X, Y = get_x_y_data(text_data, char_size)
-	# Create a checkpoint directory
-	if tf.gfile.Exists(checkpoint_directory):
-		tf.gfile.DeleteRecursively(checkpoint_directory)
-	tf.gfile.MakeDirs(checkpoint_directory)
-	print('Training data size:', len(X))
-	print('Approximate steps per epoch:', int(len(X)/batch_size))
-	create_train_our_model( X, Y, batch_size, len_per_section, char_size)
-
-
-
+	if not train_or_test:
+		X, Y = get_x_y_data(text_data, char2id, char_size)
+		# Create a checkpoint directory
+		if tf.gfile.Exists(checkpoint_directory):
+			tf.gfile.DeleteRecursively(checkpoint_directory)
+		tf.gfile.MakeDirs(checkpoint_directory)
+		print('Training data size:', len(X))
+		print('Approximate steps per epoch:', int(len(X)/batch_size))
+		create_train_test_our_model( X, Y, batch_size, len_per_section, char_size, input_text)
+	else:
+		print('Testing model on input:', input_text)
+		create_train_test_our_model( None, None, batch_size, len_per_section, char_size, char2id, id2char, input_text)
 
 	return 0
-
 
 
 def main():
 	text_data, char_list = read_text_data(raw_test_data_path)
 	char2id, id2char = get_char_to_id(char_list)
-	run_generator(text_data, char2id, id2char, char_size = len(char_list))
+	char_size = len(char_list)
+	if not train_or_test:
+		run_generator(text_data, char2id, id2char, char_size)
+	else:
+		if len(sys.argv)==2:
+			input_text = str(sys.argv[1])
+			run_generator(text_data, char2id, id2char, char_size, input_text)
+		else:
+			print("Please pass the test string in quotes.")
+
 	return 0
 
 
