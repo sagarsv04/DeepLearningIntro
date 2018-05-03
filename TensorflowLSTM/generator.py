@@ -4,10 +4,6 @@ import random # generate probability distribution
 import tensorflow as tf # machine learning
 import datetime # clock training time
 import sys
-import os
-
-# os.chdir(r'E:\to_be_deleted\DeepLearningIntro\TensorflowLSTM')
-# os.chdir(r'D:\CodeRepo\DeepLearningIntro\TextSummarizer')
 
 # dataset source
 # https://einstein.ai/research/the-wikitext-long-term-dependency-language-modeling-dataset
@@ -16,10 +12,10 @@ import os
 raw_test_data_path = "./wikitext_103/wiki.test.raw"
 
 # NOTE: This code is not memory efficient, Lower the percent_text_data to run on smaller dataset
-percent_text_data = 5
+percent_text_data = 10
 
 # 0 to train and 1 to test
-train_or_test = 0
+train_or_test = 1
 
 len_per_section = 50
 # The higher the batch size, the more memory space you'll need.
@@ -60,7 +56,7 @@ def get_char_to_id(char_list):
 	return char2id, id2char
 
 
-def sample(prediction):
+def sample(prediction, char_size):
 	# Given a probability of each character, return a likely character, one-hot encoded
 	# our prediction will give us an array of probabilities of each character
 	# we'll pick the most likely and one-hot encode it
@@ -324,44 +320,46 @@ def create_train_test_our_model( X, Y, batch_size, len_per_section, char_size, c
 					saver.save(sess, checkpoint_directory + '/model', global_step=step)
 	else:
 		with tf.Session(graph=graph) as sess:
-		    #init graph, load model
-		    tf.global_variables_initializer().run()
-		    model = tf.train.latest_checkpoint(checkpoint_directory)
-		    saver = tf.train.Saver()
-		    saver.restore(sess, model)
+			#init graph, load model
+			tf.global_variables_initializer().run()
+			model = tf.train.latest_checkpoint(checkpoint_directory)
+			saver = tf.train.Saver()
+			saver.restore(sess, model)
 
-		    #set input variable to generate chars from
-		    reset_test_state.run()
-		    test_generated = input_text
+			#set input variable to generate chars from
+			reset_test_state.run()
+			test_generated = input_text
 
-		    #for every char in the input sentennce
-		    for i in range(len(input_text) - 1):
-		        #initialize an empty char store
-		        test_X = np.zeros((1, char_size))
-		        #store it in id from
-		        test_X[0, char2id[input_text[i]]] = 1.
-		        #feed it to model, test_prediction is the output value
-		        _ = sess.run(test_prediction, feed_dict={test_data: test_X})
+			#for every char in the input sentennce
+			for i in range(len(input_text) - 1):
+				#initialize an empty char store
+				test_X = np.zeros((1, char_size))
+				#store it in id from
+				test_X[0, char2id[input_text[i]]] = 1.
+				#feed it to model, test_prediction is the output value
+				_ = sess.run(test_prediction, feed_dict={test_data: test_X})
 
 
-		    #where we store encoded char predictions
-		    test_X = np.zeros((1, char_size))
-		    test_X[0, char2id[input_text[-1]]] = 1.
+			#where we store encoded char predictions
+			test_X = np.zeros((1, char_size))
+			test_X[0, char2id[input_text[-1]]] = 1.
 
-		    #lets generate 500 characters
-		    for i in range(500):
-		        #get each prediction probability
-		        prediction = test_prediction.eval({test_data: test_X})[0]
-		        #one hot encode it
-		        next_char_one_hot = sample(prediction)
-		        #get the indices of the max values (highest probability)  and convert to char
-		        next_char = id2char[np.argmax(next_char_one_hot)]
-		        #add each char to the output text iteratively
-		        test_generated += next_char
-		        #update the
-		        test_X = next_char_one_hot.reshape((1, char_size))
+			#lets generate 500 characters
+			for i in range(500):
+				#get each prediction probability
+				prediction = test_prediction.eval({test_data: test_X})[0]
+				#one hot encode it
+				next_char_one_hot = sample(prediction, char_size)
+				#get the indices of the max values (highest probability)  and convert to char
+				next_char = id2char[np.argmax(next_char_one_hot)]
+				#add each char to the output text iteratively
+				test_generated += next_char
+				#update the
+				test_X = next_char_one_hot.reshape((1, char_size))
 
-		    print(test_generated)
+			print("Your input text: {0}".format(input_text))
+			print("The generated text:")
+			print("%s"% test_generated.encode('utf-8'))
 
 	return 0
 
