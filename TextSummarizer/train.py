@@ -26,6 +26,8 @@ from keras.optimizers import Adam, RMSprop # usually I prefer Adam but article u
 
 vocabulary_file_path = "./vocabulary_embedding.pickle"
 data_set_file_path = "./data_set.pickle"
+train_weight_file_path = "./train_weight.h5"
+train_history_file_path = "./train_history.pickle"
 
 read_percentage = 100 # percent of data to read from stored pickle data_set
 percentage_test_samples = 20 # percent of data as test from X, Y data_Set
@@ -119,7 +121,7 @@ def get_train_test_data(data_set_file_path):
 		test_size = int(len(X)*(percentage_test_samples/100))
 		X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=test_size, random_state=seed)
 
-	return X_train, X_test, Y_train, Y_test
+	return X_train, X_test, Y_train, Y_test, test_size
 
 
 def simple_context(X, mask, n=activation_rnn_size, maxlend=maxlend, maxlenh=maxlenh):
@@ -131,7 +133,7 @@ def simple_context(X, mask, n=activation_rnn_size, maxlend=maxlend, maxlenh=maxl
 	# activation for every head word and every desc word
 	activation_energies = K.batch_dot(head_activations, desc_activations, axes=[2,2])
 	# make sure we dont use description words that are masked out
-	activation_energies = activation_energies + -1e20*K.expand_dims(K.cast(mask[:, :maxlend],dtype='float32'), axis=-1)
+	activation_energies = activation_energies + -1e20*K.expand_dims(1-K.cast(mask[:, :maxlend],dtype='float32'), axis=1)
 
 	# for every head word compute weights for every desc word
 	activation_energies = K.reshape(activation_energies,(-1,maxlend))
@@ -179,10 +181,10 @@ def create_model(embedding_matrix, vocab_size, embedding_size):
 		model.add(lstm)
 		model.add(Dropout(p_dense,name='dropout_%d'%(i+1)))
 
-	if activation_rnn_size:
-		model.add(SimpleContext(name='simplecontext_1'))
-		model.add(TimeDistributed(Dense(vocab_size, name="timedistributed_1", kernel_regularizer=regularizer, bias_regularizer=regularizer)))
-		model.add(Activation('softmax', name='activation_1'))
+	# if activation_rnn_size:
+		# model.add(SimpleContext(name='simplecontext_1'))
+	model.add(TimeDistributed(Dense(vocab_size, name="timedistributed_1", kernel_regularizer=regularizer, bias_regularizer=regularizer)))
+	model.add(Activation('softmax', name='activation_1'))
 	model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 	K.set_value(model.optimizer.lr,np.float32(LR))
 
@@ -218,20 +220,85 @@ def flip_headline(x, oov, nflips=None, model=None, debug=False):
 			if w == empty:  # replace accidental empty with oov
 				w = oov
 			if debug and b < debug:
-				print("{0} => {1}".format(idx2word[x_out[b,input_idx]], idx2word[w])))
+				print("{0} => {1}".format(idx2word[x_out[b,input_idx]], idx2word[w]))
 			x_out[b,input_idx] = w
 		if debug and b < debug:
 			print("")
 	return x_out
 
 
-def conv_seq_labels(xds, xhs, oov, vocab_size, nflips=None, model=None, debug=False):
+def lpadd(x, maxlend=maxlend, eos=eos):
+    """left (pre) pad a description to maxlend and then add eos.
+    The eos is the input to predicting the first word in the headline
+    """
+    assert maxlend >= 0
+    if maxlend == 0:
+        return [eos]
+    n = len(x)
+    if n > maxlend:
+        x = x[-maxlend:]
+        n = maxlend
+    return [empty]*(maxlend-n) + [x] + [eos]
+	# return [empty]*(maxlend) + ["x"] + [eos]
+
+
+def flip_headline(x, oov, idx2word, nflips=None, model=None, debug=False):
+    """given a vectorized input (after `pad_sequences`) flip some of the words in the second half (headline)
+    with words predicted by the model
+    """
+    if nflips is None or model is None or nflips <= 0:
+        return x
+
+    batch_size = len(x)
+    assert np.all(x[:,maxlend] == eos)
+    probs = model.predict(x, verbose=0, batch_size=batch_size)
+    x_out = x.copy()
+    for b in range(batch_size):
+        # pick locations we want to flip
+        # 0...maxlend-1 are descriptions and should be fixed
+        # maxlend is eos and should be fixed
+        flips = sorted(random.sample(xrange(maxlend+1,maxlen), nflips))
+        if debug and b < debug:
+            print(b)
+        for input_idx in flips:
+            if x[b,input_idx] == empty or x[b,input_idx] == eos:
+                continue
+            # convert from input location to label location
+            # the output at maxlend (when input is eos) is feed as input at maxlend+1
+            label_idx = input_idx - (maxlend+1)
+            prob = probs[b, label_idx]
+            w = prob.argmax()
+            if w == empty:  # replace accidental empty with oov
+                w = oov
+            if debug and b < debug:
+                print('%s => %s'%(idx2word[x_out[b,input_idx]],idx2word[w]))
+            x_out[b,input_idx] = w
+        if debug and b < debug:
+            print()
+    return x_out
+
+
+def vocab_fold(xs, oov, vocab_size, glove_index2index, nb_unknown_words=10):
+    """convert list of word indexes that may contain words outside vocab_size to words inside.
+    If a word is outside, try first to use glove_idx2idx to find a similar word inside.
+    If none exist then replace all accurancies of the same unknown word with <0>, <1>, ...
+    """
+    xs = [x if x < oov else glove_index2index.get(x,x) for x in xs]
+    # the more popular word is <0> and so on
+    outside = sorted([x for x in xs if x >= oov])
+    # if there are more than nb_unknown_words oov words then put them all in nb_unknown_words-1
+    outside = dict((x,vocab_size-1-min(i, nb_unknown_words-1)) for i, x in enumerate(outside))
+    xs = [outside.get(x,x) for x in xs]
+    return xs
+
+
+def conv_seq_labels(xds, xhs, oov, vocab_size, glove_index2index, idx2word, nflips=None, model=None, debug=False):
 	"""description and hedlines are converted to padded input vectors. headlines are one-hot to label"""
 	batch_size = len(xhs)
 	assert len(xds) == batch_size
-	x = [vocab_fold(lpadd(xd)+xh) for xd,xh in zip(xds,xhs)]  # the input does not have 2nd eos
+	x = [vocab_fold(lpadd(xd)+xh, oov, vocab_size) for xd,xh in zip(xds,xhs)]  # the input does not have 2nd eos
 	x = sequence.pad_sequences(x, maxlen=maxlen, value=empty, padding='post', truncating='post')
-	x = flip_headline(x, oov, nflips=nflips, model=model, debug=debug)
+	x = flip_headline(x, oov, idx2word, nflips=nflips, model=model, debug=debug)
 
 	y = np.zeros((batch_size, maxlenh, vocab_size))
 	for i, xh in enumerate(xhs):
@@ -242,37 +309,37 @@ def conv_seq_labels(xds, xhs, oov, vocab_size, nflips=None, model=None, debug=Fa
 	return x, y
 
 
-def gen(Xd, Xh, oov, vocab_size, batch_size=batch_size, nb_batches=None, nflips=None, model=None, debug=False, seed=seed):
-    """yield batches. for training use nb_batches=None
-    for validation generate deterministic results repeating every nb_batches
+def gen(Xd, Xh, oov, vocab_size, glove_index2index, idx2word, batch_size=batch_size, nb_batches=None, nflips=None, model=None, debug=False, seed=seed):
+	"""yield batches. for training use nb_batches=None
+	for validation generate deterministic results repeating every nb_batches
 
-    while training it is good idea to flip once in a while the values of the headlines from the
-    value taken from Xh to value generated by the model.
-    """
-    c = nb_batches if nb_batches else 0
-    while True:
-        xds = []
-        xhs = []
-        if nb_batches and c >= nb_batches:
-            c = 0
-        new_seed = random.randint(0, sys.maxint)
-        random.seed(c+123456789+seed)
-        for b in range(batch_size):
-            t = random.randint(0,len(Xd)-1)
+	while training it is good idea to flip once in a while the values of the headlines from the
+	value taken from Xh to value generated by the model.
+	"""
+	c = nb_batches if nb_batches else 0
+	while True:
+		xds = []
+		xhs = []
+		if nb_batches and c >= nb_batches:
+			c = 0
+		new_seed = random.randint(0, sys.maxsize)
+		random.seed(c+123456789+seed)
+		for b in range(batch_size):
+			t = random.randint(0,len(Xd)-1)
 
-            xd = Xd[t]
-            s = random.randint(min(maxlend,len(xd)), max(maxlend,len(xd)))
-            xds.append(xd[:s])
+			xd = Xd[t]
+			s = random.randint(min(maxlend,len(xd)), max(maxlend,len(xd)))
+			xds.append(xd[:s])
 
-            xh = Xh[t]
-            s = random.randint(min(maxlenh,len(xh)), max(maxlenh,len(xh)))
-            xhs.append(xh[:s])
+			xh = Xh[t]
+			s = random.randint(min(maxlenh,len(xh)), max(maxlenh,len(xh)))
+			xhs.append(xh[:s])
 
-        # undo the seeding before we yield inorder not to affect the caller
-        c+= 1
-        random.seed(new_seed)
+		# undo the seeding before we yield inorder not to affect the caller
+		c+= 1
+		random.seed(new_seed)
 
-        yield conv_seq_labels(xds, xhs, oov, vocab_size, nflips=nflips, model=model, debug=debug)
+		yield conv_seq_labels(xds, xhs, oov, vocab_size, glove_index2index, idx2word, nflips=nflips, model=model, debug=debug)
 
 
 def run_traing_processe(vocabulary_file_path, data_set_file_path):
@@ -281,11 +348,24 @@ def run_traing_processe(vocabulary_file_path, data_set_file_path):
 	random.seed(seed)
 	np.random.seed(seed)
 	embedding_matrix, idx2word, word2idx, glove_index2index, vocab_size, embedding_size, oov = get_word_embedding_data(vocabulary_file_path)
-	X_train, X_test, Y_train, Y_test = get_train_test_data(data_set_file_path)
+	X_train, X_test, Y_train, Y_test, test_size = get_train_test_data(data_set_file_path)
 	model = create_model(embedding_matrix, vocab_size, embedding_size)
 	if len(X_train) > 0:
-
-
+		history = {}
+		traingen = gen(X_train, Y_train, oov, vocab_size, glove_index2index, idx2word, batch_size=batch_size, nflips=nflips, model=model)
+		valgen = gen(X_test, Y_test, oov, vocab_size, glove_index2index, idx2word, batch_size=batch_size, nb_batches=test_size//batch_size)
+		train_size = len(X_train)
+		for iteration in range(500):
+			print('Iteration:', iteration)
+			h = model.fit_generator(traingen, steps_per_epoch=train_size,
+							epochs=1, validation_data=valgen, validation_steps=test_size)
+			for k,v in h.history.iteritems():
+				history[k] = history.get(k,[]) + v
+			with open(train_history_file_path, 'wb') as fp:
+				pickle.dump(history,fp)
+		model.save_weights(train_weight_file_path)
+		print("Done, saved the weights")
+	# gensamples(batch_size=batch_size)
 
 	return 0
 
