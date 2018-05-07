@@ -5,6 +5,11 @@ from collections import Counter
 
 # download dataset from
 # http://opus.nlpl.eu/OpenSubtitles.php
+# TMX/Moses Downloads the txt version of the files
+
+
+language_one_path = "./OpenSubtitles.de-en.de"
+language_two_path = "./OpenSubtitles.de-en.en"
 
 
 def read_sentences(file_path):
@@ -69,10 +74,10 @@ def read_dataset(file_path):
 		return pickle.load(f)
 
 def main():
-	en_sentences = read_sentences('data/data.en')
-	de_sentences = read_sentences('data/data.de')
+	en_sentences = read_sentences(language_one_path)
+	de_sentences = read_sentences(language_two_path)
 
-	save_dataset('./data.pkl', create_dataset(en_sentences, de_sentences))
+	save_dataset('./data_set.pkl', create_dataset(en_sentences, de_sentences))
 
 if __name__ == '__main__':
 	main()

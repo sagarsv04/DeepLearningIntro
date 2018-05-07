@@ -117,3 +117,4 @@ checkpoint
 *.tokens
 *.raw
 */reference
+OpenSubtitles.*
