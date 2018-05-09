@@ -137,8 +137,7 @@ def run_translator():
 	w = tf.transpose(w_t)
 	output_projection = (w, b)
 
-	outputs, states = tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(encoder_inputs,
-																			decoder_inputs,
+	outputs, states = tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(encoder_inputs, decoder_inputs,
 																			tf.contrib.rnn.BasicLSTMCell(size),
 																			num_encoder_symbols = en_vocab_size,
 																			num_decoder_symbols = es_vocab_size,
@@ -201,8 +200,7 @@ def run_translator():
 		output_projection = (w, b)
 
 		# change the model so that output at time t can be fed as input at time t+1
-		outputs, states = tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(encoder_inputs,
-																				decoder_inputs,
+		outputs, states = tf.contrib.legacy_seq2seq.embedding_attention_seq2seq(encoder_inputs, decoder_inputs,
 																				tf.contrib.rnn.BasicLSTMCell(size),
 																				num_encoder_symbols = en_vocab_size,
 																				num_decoder_symbols = es_vocab_size,
