@@ -51,10 +51,20 @@ def random_sequences(length_from, length_to,
             return length_from
         return np.random.randint(length_from, length_to + 1)
 
-    while True:
-        yield [
-            np.random.randint(low=vocab_lower,
+    i = 0
+    while i<10:
+        i = i+1
+        yield [np.random.randint(low=vocab_lower,
                               high=vocab_upper,
                               size=random_length()).tolist()
-            for _ in range(batch_size)
-        ]
+                              for _ in range(batch_size)]
+
+def main():
+    data = random_sequences(length_from=3, length_to=8, vocab_lower=2, vocab_upper=10, batch_size=2)
+    for x in data:
+        print(x)
+    return 0
+
+
+if __name__ == '__main__':
+    main()

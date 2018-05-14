@@ -1,5 +1,5 @@
 import numpy as np # matrix math
-import tensorflow as tf # machine learningt
+import tensorflow as tf # machine learning
 import helpers # for formatting data into batches and generating random sequence data
 from tensorflow.python.ops.rnn_cell import LSTMCell, LSTMStateTuple
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ encoder_hidden_units = 20 #num neurons
 decoder_hidden_units = encoder_hidden_units * 2
 
 
-def loop_fn_initial():
+def loop_fn_initial(decoder_lengths, eos_step_embedded, encoder_final_state):
 	# manually specifying loop function through time - to get initial cell state and input to RNN
 	# normally we'd just use dynamic_rnn, but lets get detailed here with raw_rnn
 	# we define and return these values, no operations occur here
@@ -34,7 +34,7 @@ def loop_fn_initial():
 	return (initial_elements_finished, initial_input, initial_cell_state, initial_cell_output, initial_loop_state)
 
 
-def loop_fn_transition(time, previous_output, previous_state, previous_loop_state):
+def loop_fn_transition(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded):
 	# attention mechanism --choose which previously generated token to pass as input in the next timestep
 	def get_next_input():
 		# dot product between previous ouput and weights, then + biases
@@ -64,19 +64,19 @@ def loop_fn_transition(time, previous_output, previous_state, previous_loop_stat
 	return (elements_finished, input, state, output, loop_state)
 
 
-def loop_fn(time, previous_output, previous_state, previous_loop_state):
+def loop_fn(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded, eos_step_embedded, encoder_final_state):
 	if previous_state is None: # time == 0
 		assert previous_output is None and previous_state is None
-		return loop_fn_initial()
+		return loop_fn_initial(decoder_lengths, eos_step_embedded, encoder_final_state)
 	else:
-		return loop_fn_transition(time, previous_output, previous_state, previous_loop_state)
+		return loop_fn_transition(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded)
 
 
-def next_feed(batches):
+def next_feed(batches, encoder_inputs, encoder_inputs_length, decoder_targets):
 	batch = next(batches)
 	encoder_inputs_, encoder_input_lengths_ = helpers.batch(batch)
 	decoder_targets_, _ = helpers.batch([(sequence) + [EOS] + [PAD] * 2 for sequence in batch])
-	return {encoder_inputs: encoder_inputs_,encoder_inputs_length: encoder_input_lengths_,decoder_targets: decoder_targets_,}
+	return {encoder_inputs: encoder_inputs_,encoder_inputs_length: encoder_input_lengths_,decoder_targets: decoder_targets_}
 
 
 def run_seq2seq():
@@ -135,7 +135,8 @@ def run_seq2seq():
 	# This function is a more primitive version of dynamic_rnn that provides more direct access to the
 	# inputs each iteration. It also provides more control over when to start and finish reading the sequence,
 	# and what to emit for the output.
-	decoder_outputs_ta, decoder_final_state, _ = tf.nn.raw_rnn(decoder_cell, loop_fn)
+	ds = tf.data.Dataset.range(11)
+	decoder_outputs_ta, decoder_final_state, _ = tf.nn.raw_rnn(decoder_cell, ds.map(lambda x: loop_fn(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded, eos_step_embedded, encoder_final_state)))
 	decoder_outputs = decoder_outputs_ta.stack()
 	# Unpacks the given dimension of a rank-R tensor into rank-(R-1) tensors.
 	# reduces dimensionality
@@ -158,12 +159,15 @@ def run_seq2seq():
 	train_op = tf.train.AdamOptimizer().minimize(loss)
 
 	batches = helpers.random_sequences(length_from=3, length_to=8, vocab_lower=2, vocab_upper=10, batch_size=batch_size)
+	for seq in batches:
+    	print(seq)
+
 
 	loss_track = []
 	sess.run(tf.global_variables_initializer())
 try:
 	for batch in range(max_batches):
-		fd = next_feed(batches)
+		fd = next_feed(batches, encoder_inputs, encoder_inputs_length, decoder_targets)
 		_, l = sess.run([train_op, loss], feed_dict=fd)
 		loss_track.append(l)
 		if batch == 0 or batch % batches_in_epoch == 0:
