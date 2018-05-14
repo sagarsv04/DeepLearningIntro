@@ -1,13 +1,12 @@
 import numpy as np # matrix math
 import tensorflow as tf # machine learning
-import helpers # for formatting data into batches and generating random sequence data
 from tensorflow.python.ops.rnn_cell import LSTMCell, LSTMStateTuple
 import matplotlib.pyplot as plt
 
 PAD = 0
 EOS = 1
 
-batch_size = 100
+batch_sizes = 100
 max_batches = 3001
 batches_in_epoch = 1000
 
@@ -16,6 +15,64 @@ input_embedding_size = 20 #character length
 
 encoder_hidden_units = 20 #num neurons
 decoder_hidden_units = encoder_hidden_units * 2
+
+
+def helpers_batch(inputs, max_sequence_length=None):
+    """
+    Args:
+        inputs:
+            list of sentences (integer lists)
+        max_sequence_length:
+            integer specifying how large should `max_time` dimension be.
+            If None, maximum sequence length would be used
+
+    Outputs:
+        inputs_time_major:
+            input sentences transformed into time-major matrix
+            (shape [max_time, batch_size]) padded with 0s
+        sequence_lengths:
+            batch-sized list of integers specifying amount of active
+            time steps in each input sequence
+    """
+
+    sequence_lengths = [len(seq) for seq in inputs]
+    batch_sizes = len(inputs)
+
+    if max_sequence_length is None:
+        max_sequence_length = max(sequence_lengths)
+
+    inputs_batch_major = np.zeros(shape=[batch_sizes, max_sequence_length], dtype=np.int32) # == PAD
+
+    for i, seq in enumerate(inputs):
+        for j, element in enumerate(seq):
+            inputs_batch_major[i, j] = element
+
+    # [batch_size, max_time] -> [max_time, batch_size]
+    inputs_time_major = inputs_batch_major.swapaxes(0, 1)
+
+    return inputs_time_major, sequence_lengths
+
+
+def helpers_random_sequences(length_from, length_to,
+                     vocab_lower, vocab_upper,
+                     batch_sizes):
+    """ Generates batches of random integer sequences,
+        sequence length in [length_from, length_to],
+        vocabulary in [vocab_lower, vocab_upper]
+    """
+    if length_from > length_to:
+            raise ValueError('length_from > length_to')
+
+    def random_length():
+        if length_from == length_to:
+            return length_from
+        return np.random.randint(length_from, length_to + 1)
+
+    while True:
+        yield [np.random.randint(low=vocab_lower,
+                              high=vocab_upper,
+                              size=random_length()).tolist()
+                              for _ in range(batch_sizes)]
 
 
 def loop_fn_initial(decoder_lengths, eos_step_embedded, encoder_final_state):
@@ -64,22 +121,22 @@ def loop_fn_transition(time, previous_output, previous_state, previous_loop_stat
 	return (elements_finished, input, state, output, loop_state)
 
 
-def loop_fn(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded, eos_step_embedded, encoder_final_state):
-	if previous_state is None: # time == 0
-		assert previous_output is None and previous_state is None
-		return loop_fn_initial(decoder_lengths, eos_step_embedded, encoder_final_state)
-	else:
-		return loop_fn_transition(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded)
-
-
 def next_feed(batches, encoder_inputs, encoder_inputs_length, decoder_targets):
 	batch = next(batches)
-	encoder_inputs_, encoder_input_lengths_ = helpers.batch(batch)
-	decoder_targets_, _ = helpers.batch([(sequence) + [EOS] + [PAD] * 2 for sequence in batch])
+	encoder_inputs_, encoder_input_lengths_ = helpers_batch(batch)
+	decoder_targets_, _ = helpers_batch([(sequence) + [EOS] + [PAD] * 2 for sequence in batch])
 	return {encoder_inputs: encoder_inputs_,encoder_inputs_length: encoder_input_lengths_,decoder_targets: decoder_targets_}
 
 
 def run_seq2seq():
+
+	def loop_fn(time, previous_output, previous_state, previous_loop_state):
+		if previous_state is None: # time == 0
+			assert previous_output is None and previous_state is None
+			return loop_fn_initial(decoder_lengths, eos_step_embedded, encoder_final_state)
+		else:
+			return loop_fn_transition(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded)
+
 	tf.reset_default_graph() # Clears the default graph stack and resets the global default graph.
 	sess = tf.InteractiveSession() # initializes a tensorflow session
 	# input placehodlers
@@ -135,8 +192,8 @@ def run_seq2seq():
 	# This function is a more primitive version of dynamic_rnn that provides more direct access to the
 	# inputs each iteration. It also provides more control over when to start and finish reading the sequence,
 	# and what to emit for the output.
-	ds = tf.data.Dataset.range(11)
-	decoder_outputs_ta, decoder_final_state, _ = tf.nn.raw_rnn(decoder_cell, ds.map(lambda x: loop_fn(time, previous_output, previous_state, previous_loop_state, W, b, embeddings, decoder_lengths, pad_step_embedded, eos_step_embedded, encoder_final_state)))
+
+	decoder_outputs_ta, decoder_final_state, _ = tf.nn.raw_rnn(decoder_cell, loop_fn)
 	decoder_outputs = decoder_outputs_ta.stack()
 	# Unpacks the given dimension of a rank-R tensor into rank-(R-1) tensors.
 	# reduces dimensionality
@@ -158,11 +215,7 @@ def run_seq2seq():
 	# train it
 	train_op = tf.train.AdamOptimizer().minimize(loss)
 
-	batches = helpers.random_sequences(length_from=3, length_to=8, vocab_lower=2, vocab_upper=10, batch_size=batch_size)
-	for seq in batches:
-    	print(seq)
-
-
+	batches = helpers_random_sequences(length_from=3, length_to=8, vocab_lower=2, vocab_upper=10, batch_sizes=batch_sizes)
 	loss_track = []
 	sess.run(tf.global_variables_initializer())
 try:
