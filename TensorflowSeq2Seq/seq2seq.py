@@ -18,61 +18,61 @@ decoder_hidden_units = encoder_hidden_units * 2
 
 
 def helpers_batch(inputs, max_sequence_length=None):
-    """
-    Args:
-        inputs:
-            list of sentences (integer lists)
-        max_sequence_length:
-            integer specifying how large should `max_time` dimension be.
-            If None, maximum sequence length would be used
+	"""
+	Args:
+		inputs:
+			list of sentences (integer lists)
+		max_sequence_length:
+			integer specifying how large should `max_time` dimension be.
+			If None, maximum sequence length would be used
 
-    Outputs:
-        inputs_time_major:
-            input sentences transformed into time-major matrix
-            (shape [max_time, batch_size]) padded with 0s
-        sequence_lengths:
-            batch-sized list of integers specifying amount of active
-            time steps in each input sequence
-    """
+	Outputs:
+		inputs_time_major:
+			input sentences transformed into time-major matrix
+			(shape [max_time, batch_size]) padded with 0s
+		sequence_lengths:
+			batch-sized list of integers specifying amount of active
+			time steps in each input sequence
+	"""
 
-    sequence_lengths = [len(seq) for seq in inputs]
-    batch_sizes = len(inputs)
+	sequence_lengths = [len(seq) for seq in inputs]
+	batch_sizes = len(inputs)
 
-    if max_sequence_length is None:
-        max_sequence_length = max(sequence_lengths)
+	if max_sequence_length is None:
+		max_sequence_length = max(sequence_lengths)
 
-    inputs_batch_major = np.zeros(shape=[batch_sizes, max_sequence_length], dtype=np.int32) # == PAD
+	inputs_batch_major = np.zeros(shape=[batch_sizes, max_sequence_length], dtype=np.int32) # == PAD
 
-    for i, seq in enumerate(inputs):
-        for j, element in enumerate(seq):
-            inputs_batch_major[i, j] = element
+	for i, seq in enumerate(inputs):
+		for j, element in enumerate(seq):
+			inputs_batch_major[i, j] = element
 
-    # [batch_size, max_time] -> [max_time, batch_size]
-    inputs_time_major = inputs_batch_major.swapaxes(0, 1)
+	# [batch_size, max_time] -> [max_time, batch_size]
+	inputs_time_major = inputs_batch_major.swapaxes(0, 1)
 
-    return inputs_time_major, sequence_lengths
+	return inputs_time_major, sequence_lengths
 
 
 def helpers_random_sequences(length_from, length_to,
-                     vocab_lower, vocab_upper,
-                     batch_sizes):
-    """ Generates batches of random integer sequences,
-        sequence length in [length_from, length_to],
-        vocabulary in [vocab_lower, vocab_upper]
-    """
-    if length_from > length_to:
-            raise ValueError('length_from > length_to')
+					 vocab_lower, vocab_upper,
+					 batch_sizes):
+	""" Generates batches of random integer sequences,
+		sequence length in [length_from, length_to],
+		vocabulary in [vocab_lower, vocab_upper]
+	"""
+	if length_from > length_to:
+			raise ValueError('length_from > length_to')
 
-    def random_length():
-        if length_from == length_to:
-            return length_from
-        return np.random.randint(length_from, length_to + 1)
+	def random_length():
+		if length_from == length_to:
+			return length_from
+		return np.random.randint(length_from, length_to + 1)
 
-    while True:
-        yield [np.random.randint(low=vocab_lower,
-                              high=vocab_upper,
-                              size=random_length()).tolist()
-                              for _ in range(batch_sizes)]
+	while True:
+		yield [np.random.randint(low=vocab_lower,
+							  high=vocab_upper,
+							  size=random_length()).tolist()
+							  for _ in range(batch_sizes)]
 
 
 def loop_fn_initial(decoder_lengths, eos_step_embedded, encoder_final_state):
@@ -217,25 +217,26 @@ def run_seq2seq():
 
 	batches = helpers_random_sequences(length_from=3, length_to=8, vocab_lower=2, vocab_upper=10, batch_sizes=batch_sizes)
 	loss_track = []
-	sess.run(tf.global_variables_initializer())
-try:
-	for batch in range(max_batches):
-		fd = next_feed(batches, encoder_inputs, encoder_inputs_length, decoder_targets)
-		_, l = sess.run([train_op, loss], feed_dict=fd)
-		loss_track.append(l)
-		if batch == 0 or batch % batches_in_epoch == 0:
-			print('batch {}'.format(batch))
-			print('  minibatch loss: {}'.format(sess.run(loss, feed_dict=fd)))
-			predict_ = sess.run(decoder_prediction, feed_dict=fd)
-			for i, (inp, pred) in enumerate(zip(fd[encoder_inputs].T, predict_.T)):
-				print('  sample {}:'.format(i + 1))
-				print('  input > {}'.format(inp))
-				print('  predicted > {}'.format(pred))
-				if i >= 2:
-					break
-			print()
-except KeyboardInterrupt:
-	print('training interrupted')
+	# sess.run(tf.global_variables_initializer())
+	sess.run(tf.initialize_all_variables())
+	try:
+		for batch in range(max_batches):
+			fd = next_feed(batches, encoder_inputs, encoder_inputs_length, decoder_targets)
+			_, l = sess.run([train_op, loss], feed_dict=fd)
+			loss_track.append(l)
+			if batch == 0 or batch % batches_in_epoch == 0:
+				print('batch {}'.format(batch))
+				print('  minibatch loss: {}'.format(sess.run(loss, feed_dict=fd)))
+				predict_ = sess.run(decoder_prediction, feed_dict=fd)
+				for i, (inp, pred) in enumerate(zip(fd[encoder_inputs].T, predict_.T)):
+					print('  sample {}:'.format(i + 1))
+					print('  input > {}'.format(inp))
+					print('  predicted > {}'.format(pred))
+					if i >= 2:
+						break
+				print()
+	except KeyboardInterrupt:
+		print('training interrupted')
 
 	plt.plot(loss_track)
 	plt.show()
