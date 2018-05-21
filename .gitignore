@@ -116,6 +116,7 @@ checkpoint
 /TextSummarizer/bbc/
 *.tokens
 *.raw
+*/tmp
 *.gz
 */reference
 OpenSubtitles.*
